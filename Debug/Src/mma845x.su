@@ -1,0 +1,11 @@
+mma845x.c:25:6:I2C_find_devices	16	static
+mma845x.c:43:6:MMA845X_init	16	static
+mma845x.c:49:6:MMA845X_write	32	static
+mma845x.c:56:9:MMA845X_read	32	static
+mma845x.c:71:6:MMA845X_active	24	static
+mma845x.c:88:6:MMA845X_standby	24	static
+mma845x.c:104:6:MMA845x_begin	16	static
+mma845x.c:122:6:MMA845x_getdata	32	static
+mma845x.c:171:9:MMA845X_interrupt	24	static
+mma845x.c:239:9:MMA845X_disableInterrupt	8	static
+mma845x.c:245:6:MMA845X_sendData	96	static
