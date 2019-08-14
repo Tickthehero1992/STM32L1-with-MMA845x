@@ -244,9 +244,9 @@ uint8_t MMA845X_disableInterrupt()
 
 void MMA845X_sendData()
 {
-	char hui[27];
-	sprintf(hui, "%f%c%f%c%f%c",xg,';',yg,';',zg,';');
-	HAL_UART_Transmit(&huart1,(uint8_t*)&hui,27,1000);
+	char h[27];
+	sprintf(h, "%f%c%f%c%f%c",xg,';',yg,';',zg,';');
+	HAL_UART_Transmit(&huart1,(uint8_t*)&h,27,1000);
 	xg=0;
 	yg=0;
 	zg=0;
