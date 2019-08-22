@@ -55,17 +55,24 @@ void MMA845X_write(uint8_t param_addr, uint8_t param)
 
 uint8_t MMA845X_read(uint8_t param_addr)
 {
-	uint8_t Data;
-	if(HAL_I2C_Master_Transmit(&hi2c1,(uint16_t)slave_address,(uint8_t *)&param_addr, 1, 100)==HAL_OK)
+	uint8_t Data[2];
+	HAL_I2C_Mem_Read(&hi2c1, 0x0038, param_addr, I2C_MEMADD_SIZE_8BIT, Data, 1, 100);
+/*	uint8_t hui[2];
+	hui[0]=param_addr;
+	hui[1]=0x01;
+	if(HAL_I2C_Master_Transmit(&hi2c1,(uint16_t)slave_address,(uint8_t *)&hui, 2, 100)==HAL_OK)
 	{
+		//if(HAL_I2C_Master_Transmit(&hi2c1,(uint16_t)slave_address,0x01, 1, 100)==HAL_OK)
+				//	{
 		if(HAL_I2C_IsDeviceReady(&hi2c1,(uint16_t)slave_address,1,100)==HAL_OK)
 		{
-			if(HAL_I2C_Master_Receive(&hi2c1, (uint16_t)slave_address,(uint8_t *)&Data, 1, 1000)!=HAL_OK)HAL_UART_Transmit(&huart1, (uint8_t*)"Error of read\r\n",17,1000);;
+			if(HAL_I2C_Master_Receive(&hi2c1, (uint16_t)slave_address|0x01,(uint8_t *)&Data,1, 100)!=HAL_OK)HAL_UART_Transmit(&huart1, (uint8_t*)"Error of read\r\n",17,1000);
 		}
 		else HAL_UART_Transmit(&huart1, (uint8_t*)"Error of state\r\n",17,1000);
+				//}
 	}
-	else HAL_UART_Transmit(&huart1, (uint8_t*)"Error of  write read\r\n",22,1000);
-	return Data;
+	else HAL_UART_Transmit(&huart1, (uint8_t*)"Error of  write read\r\n",22,1000);*/
+	return Data[0];
 }
 
 void MMA845X_active()
@@ -218,7 +225,7 @@ switch (A)
 		break;
 }
 
-MMA845X_write(0x2A, A_setup);
+MMA845X_write(0x2A,0x02);
 MMA845X_write(0x2B, B_setup);
 
 /*
@@ -230,7 +237,7 @@ MMA845X_write(0x2E, E_setup);//interrupt configuration pins
 MMA845X_write(0x2C,to_C);
 MMA845X_write(0x2D,to_D);
 MMA845X_write(0x2E,to_E);
-
+setup_pulse(A);
 MMA845X_write(0x2A, A_setup|0x01);
 //MMA845X_standby();//?
 return 0;
@@ -244,10 +251,42 @@ uint8_t MMA845X_disableInterrupt()
 
 void MMA845X_sendData()
 {
-	char h[27];
-	sprintf(h, "%f%c%f%c%f%c",xg,';',yg,';',zg,';');
-	HAL_UART_Transmit(&huart1,(uint8_t*)&h,27,1000);
+	char hui[27];
+	sprintf(hui, "%f%c%f%c%f%c",xg,';',yg,';',zg,';');
+	HAL_UART_Transmit(&huart1,(uint8_t*)&hui,27,1000);
+	HAL_UART_Transmit(&huart1,(uint8_t*)&"\n\r",2,1000);
 	xg=0;
 	yg=0;
 	zg=0;
+}
+
+void setup_pulse(InterName A)
+{
+	switch (A)
+	{
+		case FIFO_INT:
+
+			break;
+		case TRANS_INT:
+
+			break;
+		case LDPT_INT:
+
+			break;
+		case PULSE_INT:
+
+			break;
+		case FF_MT_INT:
+			MMA845X_write(FF_MT_CFG_ADR,FF_MT_CFG); //F1 настройка всех хуевин
+			MMA845X_write(FF_MT_THS_ADR,FF_MT_THS); //0x17 сила по трем координатам
+			MMA845X_write(FF_MT_CNT_ADR,FF_MT_CNT); //0x01 счетчик импульсов
+			break;
+		case DRDY_INT:
+
+			break;
+		case ASLP_INT:
+
+			break;
+	}
+
 }

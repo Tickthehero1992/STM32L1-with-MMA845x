@@ -54,12 +54,19 @@
 #define INT_PULSE 0x08
 #define INT_FF_MT 0x04
 #define INT_DRDY 0x01
-
-
+/*FF_MT motion Setup*/
+#define FF_MT_CFG 0xF8
+#define FF_MT_THS 0x17
+#define FF_MT_CNT 0x01
+#define FF_MT_CFG_ADR 0x15
+#define FF_MT_THS_ADR 0x17
+#define FF_MT_CNT_ADR 0x18
+#define FF_MT_SRC_ADR 0x16
 
 #define MMA_845XQ_CTRL_REG1 0x2A
 #define MMA_845XQ_CTRL_REG1_VALUE_ACTIVE 0x01
 #define MMA_845XQ_CTRL_REG1_VALUE_F_READ 0x02
+
 
 #define MMA_845XQ_CTRL_REG2 0x2B
 #define MMA_845XQ_CTRL_REG2_RESET 0x40
@@ -73,6 +80,7 @@
 #define MMA_845XQ_4G_MODE 0x01 //Set Sensitivity to 4g
 #define MMA_845XQ_8G_MODE 0x02 //Set Sensitivity to 8g
 
+/*
 #define MMA_845XQ_FF_MT_CFG 0x15
 #define MMA_845XQ_FF_MT_CFG_ELE 0x80
 #define MMA_845XQ_FF_MT_CFG_OAE 0x40
@@ -84,7 +92,10 @@
 #define MMA_845XQ_PULSE_CFG_ELE 0x80
 
 #define MMA_845XQ_PULSE_SRC 0x22
-#define MMA_845XQ_PULSE_SRC_EA 0x80
+#define MMA_845XQ_PULSE_SRC_EA 0x80*/
+
+
+
 
 typedef enum Interrupt_name
 {
@@ -124,6 +135,6 @@ float MMA845X_getX();
 float MMA845X_getY();
 float MMA845X_getZ();
 void MMA845X_sendData();
-
+void setup_pulse(InterName);
 
 #endif
