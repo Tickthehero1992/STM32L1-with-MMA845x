@@ -46,33 +46,31 @@ void MMA845X_init(uint16_t add)
 	else slave_address=0x38;
 }
 
-void MMA845X_write(uint8_t param_addr, uint8_t param)
+uint8_t MMA845X_write(uint8_t param_addr, uint8_t param)
 {
 	uint8_t message[2]= {param_addr,param};
 	if(HAL_I2C_Master_Transmit(&hi2c1,(uint16_t)slave_address,message, 2, 100)!=HAL_OK)
+		{
 		HAL_UART_Transmit(&huart1, (uint8_t*)"Error of  write\r\n",17,1000);
+		return 1;
+		}
+	 return 0;
 }
 
 uint8_t MMA845X_read(uint8_t param_addr)
 {
-	uint8_t Data[2];
-	HAL_I2C_Mem_Read(&hi2c1, 0x0038, param_addr, I2C_MEMADD_SIZE_8BIT, Data, 1, 100);
-/*	uint8_t hui[2];
-	hui[0]=param_addr;
-	hui[1]=0x01;
-	if(HAL_I2C_Master_Transmit(&hi2c1,(uint16_t)slave_address,(uint8_t *)&hui, 2, 100)==HAL_OK)
+	uint8_t Data=0;/*
+	if(HAL_I2C_Master_Transmit(&hi2c1,(uint16_t)slave_address,(uint8_t *)&param_addr, 1, 100)==HAL_OK)
 	{
-		//if(HAL_I2C_Master_Transmit(&hi2c1,(uint16_t)slave_address,0x01, 1, 100)==HAL_OK)
-				//	{
 		if(HAL_I2C_IsDeviceReady(&hi2c1,(uint16_t)slave_address,1,100)==HAL_OK)
 		{
-			if(HAL_I2C_Master_Receive(&hi2c1, (uint16_t)slave_address|0x01,(uint8_t *)&Data,1, 100)!=HAL_OK)HAL_UART_Transmit(&huart1, (uint8_t*)"Error of read\r\n",17,1000);
+			if(HAL_I2C_Master_Receive(&hi2c1, (uint16_t)(slave_address+0x01),(uint8_t *)&Data, 1, 100)!=HAL_OK)HAL_UART_Transmit(&huart1, (uint8_t*)"Error of read\r\n",17,1000);
 		}
 		else HAL_UART_Transmit(&huart1, (uint8_t*)"Error of state\r\n",17,1000);
-				//}
 	}
 	else HAL_UART_Transmit(&huart1, (uint8_t*)"Error of  write read\r\n",22,1000);*/
-	return Data[0];
+	if(HAL_I2C_Mem_Read(&hi2c1, (uint16_t)(slave_address+0x01),(uint16_t)param_addr, 1,(uint8_t *)&Data, 1, 100)!=HAL_OK)HAL_UART_Transmit(&huart1, (uint8_t*)"Error of read\r\n",17,1000);
+	return Data;
 }
 
 void MMA845X_active()
@@ -108,22 +106,25 @@ void MMA845X_standby()
 }
 
 
-void MMA845x_begin(_Bool k, uint8_t a)
+uint8_t MMA845x_begin(_Bool k, uint8_t a)
 {
+ uint8_t error_Init=0;
  scale=a;
  _highres=k;
  step_factor = (_highres ? 0.0039 : 0.0156);
  if(scale==4) step_factor*=2;
  else if (scale==8) step_factor*=4;
  MMA845X_read(0x0D);
- MMA845X_write(MMA_845XQ_CTRL_REG2,MMA_845XQ_CTRL_REG2_RESET);
+ error_Init+=MMA845X_write(MMA_845XQ_CTRL_REG2,MMA_845XQ_CTRL_REG2_RESET);
  HAL_Delay(10);
- MMA845X_write(MMA_845XQ_PL_CFG,0x80 | MMA_845XQ_PL_EN);
+ error_Init+=MMA845X_write(MMA_845XQ_PL_CFG,0x80 | MMA_845XQ_PL_EN);
  if(scale==4 || scale==8)
-	 MMA845X_write(MMA_845XQ_XYZ_DATA_CFG,(scale==4)?MMA_845XQ_4G_MODE:MMA_845XQ_8G_MODE);
+	 error_Init+=MMA845X_write(MMA_845XQ_XYZ_DATA_CFG,(scale==4)?MMA_845XQ_4G_MODE:MMA_845XQ_8G_MODE);
  else
-	 MMA845X_write(MMA_845XQ_XYZ_DATA_CFG,(uint8_t)MMA_845XQ_2G_MODE);
+	 error_Init+=MMA845X_write(MMA_845XQ_XYZ_DATA_CFG,(uint8_t)MMA_845XQ_2G_MODE);
+ if (error_Init) return 1;
  MMA845X_active();
+ return 0;
 }
 
 void MMA845x_getdata()
@@ -224,8 +225,8 @@ switch (A)
 			to_E|=INT_ASLP;
 		break;
 }
-
-MMA845X_write(0x2A,0x02);
+//to_C|=0x03;
+MMA845X_write(0x2A, A_setup);
 MMA845X_write(0x2B, B_setup);
 
 /*
@@ -237,7 +238,7 @@ MMA845X_write(0x2E, E_setup);//interrupt configuration pins
 MMA845X_write(0x2C,to_C);
 MMA845X_write(0x2D,to_D);
 MMA845X_write(0x2E,to_E);
-setup_pulse(A);
+
 MMA845X_write(0x2A, A_setup|0x01);
 //MMA845X_standby();//?
 return 0;
@@ -249,44 +250,172 @@ uint8_t MMA845X_disableInterrupt()
   return 0;
 }
 
+
+uint8_t MMA845X_threshold_correct(InterName A, uint8_t Param)
+{
+
+	switch (A)
+	{
+		case TRANS_INT:
+			MMA845X_write(MMA845XQ_TR_THS ,Param);
+			break;
+		case PULSE_INT:
+			MMA845X_write(MMA845XQ_PULSE_THSX,Param);
+			MMA845X_write(MMA845XQ_PULSE_THSY,Param);
+			MMA845X_write(MMA845XQ_PULSE_THSZ,Param);
+			break;
+		case FF_MT_INT:
+			MMA845X_write(MMA845X_FF_MT_THS,Param);
+			break;
+	}
+	return 0;
+}
+
+void MMA845X_setup_FT(uint8_t Param, Axes A, uint8_t MF, uint8_t COUNT) // MF==1 motion
+{
+	uint8_t CFG=0;
+	switch(A)
+	{
+	case X:
+		CFG=MMA_845XQ_FF_MT_X;
+		break;
+	case Y:
+			CFG=MMA_845XQ_FF_MT_Y;
+			break;
+	case Z:
+			CFG=MMA_845XQ_FF_MT_Z;
+			break;
+	case XY:
+				CFG=MMA_845XQ_FF_MT_X+MMA_845XQ_FF_MT_Y;
+				break;
+	case YZ:
+				CFG=MMA_845XQ_FF_MT_Y+MMA_845XQ_FF_MT_Z;
+				break;
+	case XZ:
+				CFG=MMA_845XQ_FF_MT_X+MMA_845XQ_FF_MT_Z;
+				break;
+	case XYZ:
+				CFG=MMA_845XQ_FF_MT_X+MMA_845XQ_FF_MT_Z+MMA_845XQ_FF_MT_Y;
+				break;
+
+	}
+	if(MF==1) CFG=CFG+MMA_845XQ_FF_MT_FALL_MOTION;
+	CFG=MMA_845XQ_FF_MT_CFG_ELE+CFG;
+	MMA845X_write(0x2A,A_setup);
+	MMA845X_write(MMA_845XQ_FF_MT_CFG_ADD,CFG);
+	MMA845X_threshold_correct(FF_MT_INT, Param);
+	MMA845X_write(MMA845XQ_FF_MT_CNT,COUNT);
+
+}
+
+void MMA845X_setup_TR(uint8_t Param, Axes A,  uint8_t COUNT, _Bool Filter)
+{
+	uint8_t CFG=0;
+	if (Filter) CFG+=1;
+	switch(A)
+	{
+	case X:
+		CFG=MMA845XQ_TR_X;
+		break;
+	case Y:
+			CFG=MMA845XQ_TR_Y;
+			break;
+	case Z:
+			CFG=MMA845XQ_TR_Z;
+			break;
+	case XY:
+				CFG=MMA845XQ_TR_X+MMA845XQ_TR_Y;
+				break;
+	case YZ:
+				CFG=MMA845XQ_TR_Y+MMA845XQ_TR_Z;
+				break;
+	case XZ:
+				CFG=MMA845XQ_TR_X+MMA845XQ_TR_Z;
+				break;
+	case XYZ:
+				CFG=MMA845XQ_TR_Z+MMA845XQ_TR_Y+MMA845XQ_TR_X;
+				break;
+
+	}
+	CFG=CFG+MMA845XQ_TR_ELE;
+	MMA845X_write(0x2A,A_setup);
+	MMA845X_write(MMA845XQ_TR_CFG ,CFG);
+	MMA845X_threshold_correct(TRANS_INT, Param);
+	MMA845X_write(MMA845XQ_TR_CNT,COUNT);
+}
+
+
+void MMA845X_setup_PULSE(uint8_t Param, Axes A, uint8_t COUNT, uint8_t LTCY, uint8_t WIND, _Bool Double)
+{
+	uint8_t CFG=0;
+	if(Double) CFG+=MMA845XQ_PULSE_DP+MMA845XQ_PULSE_ELE;
+	switch(A)
+	{
+	case X:
+		if(Double) CFG+=MMA845XQ_PULSE_XD;
+		else CFG+=MMA845XQ_PULSE_XO;
+		break;
+	case Y:
+		if(Double) CFG+=MMA845XQ_PULSE_YD;
+		else CFG+=MMA845XQ_PULSE_YO;
+		break;
+	case Z:
+		if(Double) CFG+=MMA845XQ_PULSE_ZD;
+		else CFG+=MMA845XQ_PULSE_ZO;
+				break;
+	case XY:
+		if(Double) CFG+=MMA845XQ_PULSE_XD+MMA845XQ_PULSE_YD;
+		else CFG+=MMA845XQ_PULSE_XO+MMA845XQ_PULSE_YO;
+				break;
+
+	case YZ:
+		if(Double) CFG+=MMA845XQ_PULSE_ZD+MMA845XQ_PULSE_YD;
+		else CFG+=MMA845XQ_PULSE_ZO+MMA845XQ_PULSE_YO;
+				break;
+	case XZ:
+		if(Double) CFG+=MMA845XQ_PULSE_XD+MMA845XQ_PULSE_ZD;
+		else CFG+=MMA845XQ_PULSE_XO+MMA845XQ_PULSE_ZO;
+				break;
+	case XYZ:
+		if(Double) CFG+=MMA845XQ_PULSE_XD+MMA845XQ_PULSE_YD+MMA845XQ_PULSE_ZD;
+		else CFG+=MMA845XQ_PULSE_XO+MMA845XQ_PULSE_YO+MMA845XQ_PULSE_ZO;
+				break;
+
+	}
+	MMA845X_write(0x2A,A_setup);
+	MMA845X_write(MMA_845XQ_PULSE_CFG ,CFG);
+	MMA845X_threshold_correct(PULSE_INT, Param);
+	MMA845X_write(MMA845XQ_PULSE_LTCY,LTCY);
+	MMA845X_write(MMA845XQ_PULSE_WIND,WIND);
+	MMA845X_write(MMA845XQ_PULSE_TMLT ,COUNT);
+}
+
+
+
+uint8_t MMA845X_reinterrupt(InterName A)
+{
+	switch (A)
+	{
+		case TRANS_INT:
+			MMA845X_read(MMA845XQ_TR_THS);
+			break;
+		case PULSE_INT:
+			MMA845X_read(MMA_845XQ_PULSE_SRC);
+			break;
+		case FF_MT_INT:
+			MMA845X_read(MMA845XQ_FF_MT_SRC);
+			break;
+	}
+	return 0;
+}
+
 void MMA845X_sendData()
 {
 	char hui[27];
 	sprintf(hui, "%f%c%f%c%f%c",xg,';',yg,';',zg,';');
 	HAL_UART_Transmit(&huart1,(uint8_t*)&hui,27,1000);
-	HAL_UART_Transmit(&huart1,(uint8_t*)&"\n\r",2,1000);
+	HAL_UART_Transmit(&huart1,(uint8_t*)&"\r\n",2,1000);
 	xg=0;
 	yg=0;
 	zg=0;
-}
-
-void setup_pulse(InterName A)
-{
-	switch (A)
-	{
-		case FIFO_INT:
-
-			break;
-		case TRANS_INT:
-
-			break;
-		case LDPT_INT:
-
-			break;
-		case PULSE_INT:
-
-			break;
-		case FF_MT_INT:
-			MMA845X_write(FF_MT_CFG_ADR,FF_MT_CFG); //F1 настройка всех хуевин
-			MMA845X_write(FF_MT_THS_ADR,FF_MT_THS); //0x17 сила по трем координатам
-			MMA845X_write(FF_MT_CNT_ADR,FF_MT_CNT); //0x01 счетчик импульсов
-			break;
-		case DRDY_INT:
-
-			break;
-		case ASLP_INT:
-
-			break;
-	}
-
 }
